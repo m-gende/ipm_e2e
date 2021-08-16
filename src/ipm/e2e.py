@@ -12,7 +12,7 @@ at-spi api. This abstraction is intended to ease the use of the api.
 Examples
 --------
 
-Implementation of Gerkhin steps::
+Implementation of Gherkin steps::
 
     # GIVEN I started the application
     process, app = e2e.run("./contador.py")
@@ -28,12 +28,15 @@ Implementation of Gerkhin steps::
     # THEN I see the text "Has pulsado 1 vez"
     assert shows(role= "label", text= "Has pulsado 1 vez")
 
-    ## Before leaving, clean up your mesh
+    ## Before leaving, clean up your mess
     process and process.kill()
+
+
 """
 
 from __future__ import annotations
 
+from collections.abc import ByteString
 from pathlib import Path
 import random
 import re
@@ -47,7 +50,7 @@ from gi.repository import Atspi
 
 __all__ = [
     'perform_on',
-    'perform_on_all',
+    'perform_on_each',
     'find_obj',
     'find_all_objs',
     'obj_get_attr',
@@ -57,7 +60,7 @@ __all__ = [
     'is_error',
     'fail_on_error',
     'Either',
-    'UserDo',
+    'MatchArgs',
 ]
 
 
@@ -65,23 +68,23 @@ class NotFoundError(Exception): pass
 
 
 T = TypeVar('T')
-Either= Union[Exception, T]
+Either = Union[Exception, T]
 """The classic Either type, i.e. a value of type T or an error.
 
 *N.B.:* The typing and implementation of the functions using this type
-is quite relaxed.
+is quite relaxed (unorthodox).
 
 """
 
 
-def is_error(x: Any) -> bool:
+def is_error(x: Either[Any]) -> bool:
     """Checks whether any python object represents an error.
     
     This function is intended to be used with values of type ``Either``.
 
     Parameters
     ----------
-    x
+    x : Either[T]
         The object to check
 
     Returns
@@ -93,23 +96,27 @@ def is_error(x: Any) -> bool:
     return isinstance(x, Exception)
 
 
-def fail_on_error(x: Any) -> None:
-    """Raises an exception when the python object represents an error.
+def fail_on_error(x: Either[Any]) -> Any:
+    """Raises an exception on error.
+
+    Raiese an exception when the python object represents an error,
+    otherwise returns the object itself.
 
     Parameters
     ----------
-    x
+    x : Either[T]
         The object to check
 
     Returns
     -------
-    Any
+    T
         The python object when it is not an error
 
     Raises
     ------
     Exception
         The exception that corresponds to the error
+
     """
     
     if is_error(x):
@@ -194,7 +201,57 @@ def _help_not_found(kwargs) -> str:
         msg = f"{msg}\n{role} is not a role name"
     return msg
 
-        
+
+MatchPattern = Union[str, ByteString,
+                     re.Pattern,
+                     Callable[[Atspi.Object],bool],
+                     Callable[[Any],bool]]
+
+#MatchAargs = dict[str, MatchPattern]
+from typing import Dict
+MatchArgs = Dict[str, MatchPattern]
+"""A dict containing a list of patterns an at-spi object should match.
+
+An object matches the list of patterns if and only if it matches all
+the patterns in the list. 
+
+Each pair ``name: value`` is interpreted as follows:
+
+    **name = 'when':** Predicate on the object.
+
+        The value is a function ``Atspi.Object -> bool``. This
+        function returns whether or not the at-spi objects matches
+        this pattern.
+
+    **name = 'nth':** Position of the object.
+
+        The value must be the position of the at-spi object among its
+        siblings. As usual the positions start at 0, and negative
+        indexes are refered to the end of the list.
+
+    **name = 'path':** TODO
+
+    **name = '...':** Otherwise, one of the object's atrributes.
+
+        The name is interpreted as the name of one object's attribute,
+        and the value is interpreted as follows:
+
+            **value = str | bytes:** String or bytes.
+
+                The value must equal to the value of the object's
+                attribute.
+
+            **value = re.Pattern:** A regular expression.
+
+                The object's attribute value must match the given re.
+
+            **value = function(Any -> bool):** A predicate on the attribute's value.
+
+                The function must return True when called with the
+                object's attribute value as argument.
+
+"""
+
 # TODO: Parámetro `path` el valor puede incluir patrones. Hay que ver
 # qué lenguaje usamos. Tiene que machear con el path desde el root
 # hasta el widget.  ¿ Nos interesa incluir otros atributos además de
@@ -202,24 +259,34 @@ def _help_not_found(kwargs) -> str:
 def _match(obj: Atspi.Object, path: TreePath, name: str, value: Any) -> bool:
     if name == 'path':
         TODO
+        
     elif name == 'nth':
         nth_of = path[-1]
         idx = value if value >= 0 else nth_of.n + value
         return idx == nth_of.i
-    elif type(value) == str:
+    
+    elif name == 'when':
+        return value(obj, path)
+    
+    # From now on, the name is the name of an object's attribute
+    elif type(value) == str or isinstance(value, ByteString):
         return obj_get_attr(obj, name) == value
+    
     elif type(value) == re.Pattern:
         attr_value = obj_get_attr(obj, name)
         if is_error(attr_value):
             return False
         return value.fullmatch(attr_value) is not None
-    elif name == 'pred':
-        return value(obj, path)
+    
+    elif callable(value):
+        return value(obj_get_attr(obj, name))
+    
+    # It looks like an error
     else:
         TODO
 
 
-def _find_all_descendants(root: Atspi.Object, kwargs) -> Iterable[Atspi.Object]:
+def _find_all_descendants(root: Atspi.Object, kwargs: MatchArgs) -> Iterable[Atspi.Object]:
     if len(kwargs) == 0:
         descendants = (obj for _path, obj in tree_walk(root))
     else:
@@ -228,34 +295,12 @@ def _find_all_descendants(root: Atspi.Object, kwargs) -> Iterable[Atspi.Object]:
     return descendants
 
     
-def find_obj(root: Atspi.Object, **kwargs) -> Either[Atspi.Object]:
+def find_obj(root: Atspi.Object, **kwargs: MatchArgs) -> Either[Atspi.Object]:
     """Searchs for the first at-spi object that matches the arguments.
 
     This functions searchs the given `root` object and its descendants
-    (inorder), looking for the first object that matches the arguments
-    `kwargs`.
-
-    In order to match `kwargs`, an object must satisfy all named
-    arguments of the list. Each argument is interpreted as follows:
-
-    - `pred`. When the name of the argument is `pred`, its value must
-      be a function `xxx(obj: Atspi.Object, path: PathTree) -> bool`.
-      This function must implement some kind of check on the given
-      object.
-
-    - `nth`. The position of the object among its siblings must be the
-      given value. As usual positions start at 0, and negative indexes
-      start at the the end of the list.
-
-    - Otherwise. The name of the argument denotes the attribute of the
-      object to be checked. And the value can be:
-
-      - A string. The object's attribute value must be identical to
-        the given string.
-
-      - An `re.Pattern` object. The whole object's attribute value
-        will be checked against the regular expression pattern
-        (i.e. `fullmatch`).
+    (inorder), looking for the first object that matches the patterns
+    in `kwargs`.
 
     When `kwargs` is empty, the `root` object is selected.
 
@@ -264,7 +309,7 @@ def find_obj(root: Atspi.Object, **kwargs) -> Either[Atspi.Object]:
     root : Atspi.Object
         The object to start the search from
     **kwargs
-        The patterns the object must match (as previosuly explained)
+        See :py:data:`MatchArgs`
 
     Returns
     -------
@@ -286,7 +331,7 @@ def find_obj(root: Atspi.Object, **kwargs) -> Either[Atspi.Object]:
             return obj
 
     
-def find_all_objs(roots: Union[Atspi.Object, Iterable[Atspi.Object]], **kwargs) -> list[Atspi.Object]:
+def find_all_objs(roots: Union[Atspi.Object, Iterable[Atspi.Object]], **kwargs: MatchArgs) -> list[Atspi.Object]:
     """Searchs for all the at-spi objects that matches the arguments.
 
     This function is similar to `find_obj`. The meaning of the
@@ -305,7 +350,7 @@ def find_all_objs(roots: Union[Atspi.Object, Iterable[Atspi.Object]], **kwargs) 
     roots: Union[Atspi.Object, Iterable[Atspi.Object]]
         The object/s to start the search from
     **kwargs
-        The patterns the object must match (as previosuly explained)
+        See :py:data:`MatchArgs`
 
     Returns
     -------
@@ -398,86 +443,12 @@ def tree_walk(root: Atspi.Object, path: TreePath= ROOT_TREE_PATH) -> Iterator[tu
 # contiene un objeto callable, o cualquier opción que implique que el
 # nombre tiene que ser un _python name_.
 UserDo = Callable[[str,...], None]
-"""Performs an action on the first descendant at-spi object that
-matches the patterns.
-    
-    Parameters
-    ----------
-    action_name : str
-        The name of the action
-    \*\*kwargs
-        The patterns the object must match (as previosuly explained)
-
-    Raises
-    ------
-    NotFoundError
-        If no object matches the patterns in kwargs
-        If the matching object doesn't provide the given action
-"""
-
 UIShows = Callable[[...], bool]
-"""Checks whether the UI shows the information given by the patterns.
-
-Note that the pattern can specify both the information to be shown and
-the at-spi object that contains that information.
-
-    Parameters
-    ----------
-    **kwargs
-        The patterns the object must match (as previosuly explained)
-
-    Returns
-    -------
-    bool
-        Whether any object matches the patterns.
-"""
-
 UIInteraction = tuple[UserDo, UIShows]
 
-UserDoAll = Callable[[str,...], None]
-"""For each root object performs an action on the first descendant
-at-spi object that matches the patterns.
-
-    Parameters
-    ----------
-    action_name : str
-        The name of the action
-    **kwargs
-        The patterns the object must match (as previosuly explained)
-
-    Raises
-    ------
-    NotFoundError
-        If no object matches the patterns in kwargs
-        If the matching object doesn't provide the given action
-
-"""
-UIShowsAll = Callable[[...], Iterator[bool]]
-"""For each root object checks wheter the UI shows the information
-given by the patterns.
-
-Note that the pattern can specify both the information to be shown and
-the at-spi object that contains that information.
-
-Note that the result is an iterator which data can be aggregated using
-the builtins ``any`` or ``all``.
-
-    Parameters
-    ----------
-    **kwargs
-        The patterns the object must match (as previosuly explained)
-
-    Returns
-    -------
-    Iterator[bool]
-        A collection of boolean indicating whether any object matches
-        the patterns for each root object.
-
-"""
-UIMultipleInteraction = tuple[UserDoAll, UIShowsAll]
-
-
-Obj_S = Union[Atspi.Object | Iterable[Atspi.Object]]
+UserForeachDo = Callable[[str,...], None]
+UIEachShows = Callable[[...], Iterator[bool]]
+UIMultipleInteraction = tuple[UserForeachDo, UIEachShows]
 
 
 def _as_iterable(objs: Obj_S) -> Iterable[Atspi.Object]:
@@ -492,32 +463,52 @@ def _do(obj: Atspi.Object, action_name: str) -> None:
     obj.do_action(idx)
 
     
-def perform_on(roots: Obj_S, **kwargs) -> UIInteraction:
-    """Constructs functions that interact with parts of the user interface.
+def perform_on(root: Atspi.Object, **kwargs: MatchArgs) -> UIInteraction:
+    """Constructs functions that interact with one part of the user interface.
 
-    For each at-spi object in roots, this function looks for the first
-    descendant of that root that matches the patterns in `kwargs`. The
-    `kwargs` arguments are interpreted exactyly as in the function
-    `find_obj`.
+    For the given at-spi object, this function finds the first
+    descendant that matches the patterns in `kwargs`. Then, it selects
+    the part of the UI given by the subtree which root is the found
+    object and constructs the following functions that performs
+    actions on that subtree:
 
-    Then, it constructs the functions that interact, using at-spi,
-    with the subtrees rooted at the at-spi objects found. These
-    functions implements two basic interactions, intended to replace
-    the users' interaction. See :py:data:`UserDo` and
-    :py:data:`UIShows` for a description of these functions.
+    .. function:: do(action_name : str, **kwargs: MatchArgs) -> None
+
+       Performs an action on the first descendant at-spi object that
+       matches the patterns.
+
+       :param str action_name: The name of the action
+       :param \*\*kwargs: See :py:data:`MatchArgs`
+       :raises NotFoundError: if no object mathces the patterns in kwargs
+       :raises NotFoundError: if the matching object doesn't provide the give action
+
+    .. function:: shows(**kwargs: MatchArgs) -> bool
+
+       Checks whether the UI shows the information given by the patterns.
+
+       Note that the pattern should specify both the information to be
+       shown and the at-spi object that contains that information.
+
+       :param \*\*kwargs: See :py:data:`MatchArgs`
+       :return: Whether any object matches the patterns
+       :rtype: bool
+
+    These functions interact, using at-spi, with the subtree rooted at
+    the at-spi object found. They implement two basic interactions,
+    intended to replace the users' interaction.
 
     Parameters
     ----------
-    roots : Atspi.Object | Iterable[Atspi.Object]
-        The at-spi object/s to start the search from
+    root : Atspi.Object
+        The at-spi object to start the search from
 
     **kwargs
-        The patterns the object must match (as previously explained)
+        See :py:data:`MatchArgs`
 
     Returns
     -------
     UIInteraction
-        A tuple with the two functions: ``UserDo`` and ``UIShows``
+        A tuple with the two functions: :py:func:`do` and :py:func:`shows`
 
     Raises
     ------
@@ -525,11 +516,7 @@ def perform_on(roots: Obj_S, **kwargs) -> UIInteraction:
         If no object matches the patterns in `kwargs`
 
     """
-
-    on_objs = [ fail_on_error(find_obj(root, **kwargs))
-                for root in _as_iterable(roots) ]
-
-    def do(
+        
     on_obj = find_obj(root, **kwargs)
     fail_on_error(on_obj)
     
@@ -546,16 +533,46 @@ def perform_on(roots: Obj_S, **kwargs) -> UIInteraction:
     return (do, shows)
 
 
-def perform_on_all(roots: Union[Atspi.Object, Iterable[Atspi.Object]], **kwargs) -> UIMultipleInteraction:
+def perform_on_each(roots: Iterable[Atspi.Object], **kwargs: MatchArgs) -> UIMultipleInteraction:
     """Constructs functions that interact with some parts of the user interface.
 
-    This function is mostly equal to :py:func:`perform_on`, but
-    instead of working on the first at-spi object that matches the
-    kwargs, it works on every object that matches them. So the
-    difference is that the functions ``do`` and ``shows`` will perform
-    the interaction on every descendant that matches kwargs.  See
-    :py:data:`UserDoAll` and :py:data:`UIShowsAll` for a description
-    of these functions.
+    This function is similar to :py:func:`perform_on`, but instead of
+    selecting one part (subtree) of the UI, it selects a collection of
+    them.
+
+    For each object in `roots`, it selects a subtree that starts at
+    the first descendant that matches the patterns in `kwargs`. Then
+    it constructs the following functions that performs actions on
+    that collections of subtrees:
+
+    .. function:: foreach_do(action_name : str, **kwargs: MatchArgs) -> None
+
+       For each subtree performs an action on the first descendant
+       that matches the patterns.
+
+       :param str action_name: The name of the action
+       :param \*\*kwargs: See :py:data:`MatchArgs`
+       :raises NotFoundError: If no object matches the patterns in kwargs
+       :raises NotFountError: If the matching object doesn't provide the given action
+
+    .. function:: each_shows(**kwargs: MatchArgs) -> Iterator[bool]
+
+       For each subtree checks wheter the UI shows the information
+       given by the patterns.
+
+       Note that the pattern should specify both the information to be
+       shown and the at-spi object that contains that information.
+
+       Note that the result is an iterator which data can be
+       aggregated using the builtins ``any`` or ``all``.
+
+       :param \*\*kwargs: See :py:data:`MatchArgs`
+       :return: A collection of booleans indicating whether any object matches the patterns for each root object
+       :rtype: Iterator[bool]
+
+    These functions will perform the interaction on every subtree. As
+    in :py:func:`perform_on`, they implement, using at-spi, two basic
+    interactions, intended to replace the users' interaction.
 
     Parameters
     ----------
@@ -563,12 +580,12 @@ def perform_on_all(roots: Union[Atspi.Object, Iterable[Atspi.Object]], **kwargs)
         The object/s to start the search from
 
     **kwargs
-        The patterns the object must match (as previously explained)
+        See :py:data:`MatchArgs`
 
     Returns
     -------
-    UIInteraction
-        A tuple with the two functions: `do(str, ...) -> None` and `shows(...) -> Iterator[bool]`
+    UIMultipleInteraction
+        A tuple with the two functions: :py:func:`foreach_do` and :py:func:`each_shows`
 
     Raises
     ------
@@ -576,22 +593,19 @@ def perform_on_all(roots: Union[Atspi.Object, Iterable[Atspi.Object]], **kwargs)
         If no object matches the patterns in `kwargs`
 
     """
-    
-    on_all_objs = find_all_objs(roots, **kwargs)
-    if len(on_all_objs) == 0:
-        raise NotFoundError(f"no widget from {_pprint(root)} with {kwargs}") 
-    
+
+    on_objs = [ fail_on_error(find_obj(root, **kwargs))
+                for root in roots ]
+
     def do(action_name: str, **kwargs) -> None:
-        for on_obj in on_all_objs:
-            obj = find_obj(on_obj, **kwargs)
-            fail_on_error(obj)
-            _do(obj, action_name)
+        for on_obj in on_objs:
+            _do(fail_on_error(find_obj(on_obj, **kwargs)),
+                action_name)
 
     def shows(**kwargs) -> Iterator[bool]:
         if len(kwargs) == 0:
             raise TypeError("shows must have at least one argument, got 0")
-        for on_obj in on_all_objs:
-            yield next(_find_all_descendants(on_obj, kwargs), None) is not None
+        return (not is_error(find_obj(on_obj, **kwargs)) for on_obj in on_objs)
 
     return (do, shows)
 

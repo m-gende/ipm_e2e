@@ -1,6 +1,6 @@
 .. _api:
 
-e2e module
-==========
+e2e module api
+==============
 .. automodule:: ipm.e2e
    :members:

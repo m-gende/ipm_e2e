@@ -28,6 +28,7 @@ abstraction of the AT-SPI api.
    :caption: Contents:
 
    introduction
+   motivation
    api
 
       
