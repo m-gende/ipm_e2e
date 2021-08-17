@@ -17,7 +17,10 @@ formats:
 python:
    install:
    - requirements: docs/requirements.txt
-
+   - method: pip
+     extra_requirements:
+       - vext
+       - vext.gi
 
 build:
   apt_packages:
