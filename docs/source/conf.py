@@ -46,6 +46,9 @@ templates_path = ['_templates']
 exclude_patterns = []
 
 
+# -- Extensions configuration ------------------------------------------------
+autodoc_mock_imports = ["gi"]
+
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
