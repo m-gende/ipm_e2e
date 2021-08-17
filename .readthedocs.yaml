@@ -22,7 +22,8 @@ python:
 
 build:
   image: testing
-  apt_packages:
+  system_packages:
     - python3.9
+  apt_packages:
     - gir1.2-atspi-2.0
     - python3-gi
