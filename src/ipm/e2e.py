@@ -42,7 +42,7 @@ import random
 import re
 import subprocess
 import time
-from typing import Any, Callable, Iterable, Iterator, NamedTuple, Optional, TypeVar, Union
+from typing import Any, AnyStr, Callable, Iterable, Iterator, NamedTuple, Optional, Protocol, TypeVar, Union
 
 import gi
 gi.require_version('Atspi', '2.0')
@@ -202,7 +202,7 @@ def _help_not_found(kwargs) -> str:
     return msg
 
 
-MatchPattern = Union[str, ByteString,
+MatchPattern = Union[AnyStr,
                      re.Pattern,
                      Callable[[Atspi.Object],bool],
                      Callable[[Any],bool]]
@@ -436,17 +436,21 @@ def tree_walk(root: Atspi.Object, path: TreePath= ROOT_TREE_PATH) -> Iterator[tu
         yield from tree_walk(child, path= path + (NthOf(i,n_children),))
 
 
-# Función do
-#
 # El nombre de la acción es un parámetro porque hay acciones con
 # espacios en el nombre. No intentamos que sea un atributo que
 # contiene un objeto callable, o cualquier opción que implique que el
 # nombre tiene que ser un _python name_.
-UserDo = Callable[[str,...], None]
+#
+# Usamos un Protocol porque no hay otra forma de definir el callable con
+# **kwargss :_(
+# https://mypy.readthedocs.io/en/stable/protocols.html#callback-protocols
+class UserDo(Protocol):
+    def __call__(name: str, **kwargs: MatchArgs) -> None: ...
 UIShows = Callable[[...], bool]
 UIInteraction = tuple[UserDo, UIShows]
 
-UserForeachDo = Callable[[str,...], None]
+class UserForeachDo(Protocol):
+    def __call__(name: str, **kwargs: MatchArgs) -> None: ...
 UIEachShows = Callable[[...], Iterator[bool]]
 UIMultipleInteraction = tuple[UserForeachDo, UIEachShows]
 
