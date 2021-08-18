@@ -22,7 +22,10 @@ test must implement this api.
 pip install ipm_e2e
 ```
 
-Also, you must install the following dependencies:
+### Dependencies (no python)
+
+This library depends on several services and libraries, mainly c code,
+that cannot be installed using pip:
 
   - AT-SPI service
   
@@ -32,22 +35,38 @@ Also, you must install the following dependencies:
   
   - Assistive Technology Service Provider (GObject introspection)
 
-  - Python 3 bindings for gobject-introspection libraries
-  
-
-The installation process depends on your system. By example, for a debian
+You should use your system's package manager to install them. The
+installation process depends on your system, by example, for a debian
 distro:
 
 ```
-$ sudo apt install at-spi2-core python3-gi gir1.2-atspi-2.0 
+$ sudo apt install at-spi2-core gir1.2-atspi-2.0 
 ```
 
 Note that, if you're using Gnome, some of these packages are already
 installed.
 
+### Dependencies (python)
+
+This library depends on the following python library:
+
+  - Python 3 bindings for gobject-introspection libraries
+
+That `python3-gi` library itself depends on some libraries like
+`gir1.2-glib-2.0`, `gir1.2-atspi-2.0`, ... If you've installed them
+using your system's package manager, the safe bet would be to do the
+same for this one. By example:
+
+```
+$ sudo apt install python3-gi
+```
+
+### Dependencies (virtual environment)
+
 If you're using a virtual environment, probably you'll prefer not to
-install `libatspi`, `gi`, ... in that _venv_. Instead of that, it's
-easier to install `vext`:
+manually install/compile the non-python libraries, neither use the
+`system-site-packages` option. Instead of that, it's easier to install
+`vext`:
 
 ```
 $ pip install vext vext.gi
@@ -56,7 +75,7 @@ $ pip install vext vext.gi
 
 ## Support
 
-Please (github.com/cabrero/ipm_e2e/issues)[open an issue] for support.
+Please [open an issue](https://github.com/cabrero/ipm_e2e/issues) for support.
 
 
 ## License
