@@ -19,6 +19,7 @@ python:
    version: 3.9
    install:
    - requirements: docs/requirements.txt
+   system_packages: true
 
 build:
   image: testing

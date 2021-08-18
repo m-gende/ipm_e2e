@@ -47,7 +47,7 @@ exclude_patterns = []
 
 
 # -- Extensions configuration ------------------------------------------------
-autodoc_mock_imports = ["gi"]
+#autodoc_mock_imports = ["gi"]
 
 # -- Options for HTML output -------------------------------------------------
 
