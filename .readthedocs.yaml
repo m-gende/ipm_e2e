@@ -17,15 +17,14 @@ formats:
 # Optionally set the version of Python and requirements required to build your docs
 # -- little hack to get vext installed before installing vext.gi
 python:
-   #version: 3.9
+   version: 3.9
    install:
    - requirements: docs/requirements.txt
-   - requirements: docs/requirements-vext.txt
-   - requirements: docs/requirements-vext-gi.txt
-   #system_packages: true
+   - requirements: docs/requirements-rtd.txt
 
 build:
   image: testing
   apt_packages:
+    - libgirepository1.0-dev
     - gir1.2-atspi-2.0
     - python3-gi
