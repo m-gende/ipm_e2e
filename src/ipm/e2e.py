@@ -446,12 +446,12 @@ def tree_walk(root: Atspi.Object, path: TreePath= ROOT_TREE_PATH) -> Iterator[tu
 # https://mypy.readthedocs.io/en/stable/protocols.html#callback-protocols
 class UserDo(Protocol):
     def __call__(name: str, **kwargs: MatchArgs) -> None: ...
-UIShows = Callable[[...], bool]
+UIShows = Callable[..., bool]
 UIInteraction = tuple[UserDo, UIShows]
 
 class UserForeachDo(Protocol):
     def __call__(name: str, **kwargs: MatchArgs) -> None: ...
-UIEachShows = Callable[[...], Iterator[bool]]
+UIEachShows = Callable[..., Iterator[bool]]
 UIMultipleInteraction = tuple[UserForeachDo, UIEachShows]
 
 
