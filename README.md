@@ -81,6 +81,3 @@ Please [open an issue](https://github.com/cabrero/ipm_e2e/issues) for support.
 ## License
 
 The project is licensed under the LGPL license.
-
-
-## TODO
