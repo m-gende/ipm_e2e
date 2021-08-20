@@ -732,11 +732,17 @@ def dump_app(name: str) -> None:
 
 
 def main() -> None:
-    """As a script calls dump functions. Usage:
-    
-    {filename}         Dumps the list of applications running in the desktop
+    """As a script calls dump functions.
 
-    {filename} name    Dumps the tree of at-spi objects of the application {name}
+    Usage:
+   
+    .. program:: atspi-dump
+ 
+    Without args, dumps the list of applications running in the desktop
+
+    .. option:: <name>
+
+       Dumps the tree of at-spi objects of the application {name}
     """
     import sys
     

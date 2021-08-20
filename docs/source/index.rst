@@ -30,6 +30,7 @@ abstraction of the AT-SPI api.
    introduction
    motivation
    api
+   cli
 
       
 Indices and tables
