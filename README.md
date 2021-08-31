@@ -72,6 +72,16 @@ manually install/compile the non-python libraries, neither use the
 $ pip install vext vext.gi
 ```
 
+, or `pygobject`:
+
+```
+$ pip install pygobject
+```
+
+## Documentation
+
+The documentation is available at [readthedocs](https://ipm-e2e.readthedocs.io/en/latest/).
+
 
 ## Support
 
