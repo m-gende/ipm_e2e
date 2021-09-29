@@ -1,0 +1,7 @@
+## If the installation fails, you may be missing some graphical libraries.
+## A possible solution would be to install: 
+
+'''
+sudo apt install libcairo2-dev libjpeg-dev libgif-dev
+sudo apt install libgirepository1.0-dev
+'''

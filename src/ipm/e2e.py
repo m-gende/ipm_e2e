@@ -42,7 +42,7 @@ import random
 import re
 import subprocess
 import time
-from typing import Any, AnyStr, Callable, Iterable, Iterator, NamedTuple, Optional, Protocol, TypeVar, Union
+from typing import Any, AnyStr, Callable, Iterable, Iterator, NamedTuple, Optional, Protocol, TypeVar, Union, Tuple
 
 import gi
 gi.require_version('Atspi', '2.0')
@@ -398,13 +398,13 @@ class NthOf(NamedTuple):
         return f"{self.i}/{self.n}"
 
 
-TreePath = tuple[NthOf, ...]
+TreePath = Tuple[NthOf, ...]
 
 
 ROOT_TREE_PATH = (NthOf(0, 1),)
 
 
-def tree_walk(root: Atspi.Object, path: TreePath= ROOT_TREE_PATH) -> Iterator[tuple[TreePath, Atspi.Object]]:
+def tree_walk(root: Atspi.Object, path: TreePath= ROOT_TREE_PATH) -> Iterator[Tuple[TreePath, Atspi.Object]]:
     """Creates a tree traversal.
 
     This function performs an inorder tree traversal, starting at the
@@ -447,12 +447,12 @@ def tree_walk(root: Atspi.Object, path: TreePath= ROOT_TREE_PATH) -> Iterator[tu
 class UserDo(Protocol):
     def __call__(name: str, **kwargs: MatchArgs) -> None: ...
 UIShows = Callable[..., bool]
-UIInteraction = tuple[UserDo, UIShows]
+UIInteraction = Tuple[UserDo, UIShows]
 
 class UserForeachDo(Protocol):
     def __call__(name: str, **kwargs: MatchArgs) -> None: ...
 UIEachShows = Callable[..., Iterator[bool]]
-UIMultipleInteraction = tuple[UserForeachDo, UIEachShows]
+UIMultipleInteraction = Tuple[UserForeachDo, UIEachShows]
 
 
 def _as_iterable(objs: Obj_S) -> Iterable[Atspi.Object]:
@@ -629,7 +629,7 @@ def _wait_for_app(name: str, timeout: Optional[float]= None) -> Optional[Atspi.O
     return app
 
 
-App = tuple[subprocess.Popen, Optional[Atspi.Object]]
+App = Tuple[subprocess.Popen, Optional[Atspi.Object]]
 
 def run(path: Union[str, Path],
         name: Optional[str]= None,

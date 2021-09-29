@@ -1,15 +1,16 @@
 # IPM e2e
 
-This library implements the usual functions that we'll need to write
-_end to end_ tests.
+This is a hotfix to the ipm_e2e library so that it can be used with
+Python 3.8.
 
-It offers a functional api that performs programmatically the usual
-interactions with the graphical interface, on behalf of a human user.
 
-In order to do its job, this library uses the at-spi api, so the
-corresponding service must be available and the applications under
-test must implement this api.
+# Changes
 
+* Fixed typing in e2e.py
+  * Added Typing import for Tuple
+  * Substituted calls to tuple for Tuple
+* Added support for Python 3.8 in setup.cfg
+  * Modified the required version of Python
 
 ## Features
 
@@ -19,7 +20,8 @@ test must implement this api.
 ## Installation
 
 ```
-pip install ipm_e2e
+git clone https://github.com/m-gende/ipm_e2e.git
+pip install ipm_e2e/
 ```
 
 ### Dependencies (no python)
@@ -61,33 +63,7 @@ same for this one. By example:
 $ sudo apt install python3-gi
 ```
 
-### Dependencies (virtual environment)
-
-If you're using a virtual environment, probably you'll prefer not to
-manually install/compile the non-python libraries, neither use the
-`system-site-packages` option. Instead of that, it's easier to install
-`vext`:
-
-```
-$ pip install vext vext.gi
-```
-
-, or `pygobject`:
-
-```
-$ pip install pygobject
-```
 
 ## Documentation
 
 The documentation is available at [readthedocs](https://ipm-e2e.readthedocs.io/en/latest/).
-
-
-## Support
-
-Please [open an issue](https://github.com/cabrero/ipm_e2e/issues) for support.
-
-
-## License
-
-The project is licensed under the LGPL license.
